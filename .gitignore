@@ -37,14 +37,8 @@ env/
 .env
 *.env.local
 
-# Config files with secrets (keep example)
-config/config.yaml
-
-# Generated spot configurations (user-specific)
-config/spots.json
-
-# Snapshot images
-config/*.jpg
+# Calibration reference images (auto-generated)
+config/reference_calibration.jpg
 config/*.png
 
 # YOLOv8 model files (downloaded automatically)

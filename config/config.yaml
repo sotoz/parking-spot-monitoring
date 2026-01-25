@@ -1,0 +1,58 @@
+# Parking Spot Monitoring Configuration
+# Copy this file and update with your settings
+
+camera:
+  # UDM Pro IP address (or hostname)
+  host: "192.168.1.1"
+  port: 443
+
+  # Local access user credentials (NOT Ubiquiti SSO account)
+  # Create a local user in UniFi OS Settings > Admins & Users
+  username: "camera"
+  # Use environment variable for security: ${UFP_PASSWORD}
+  # Or put the password directly here (not recommended)
+  password: "${UFP_PASSWORD}"
+
+  # Set to true if you have valid SSL certificate
+  verify_ssl: false
+
+  # Camera name as shown in UniFi Protect, or the camera ID
+  camera_id: "Buiten"
+
+  # Snapshot resolution (match your camera's aspect ratio)
+  snapshot_width: 1920
+  snapshot_height: 1080
+
+detection:
+  # YOLOv8 model: yolov8n.pt (fast), yolov8s.pt (balanced), yolov8m.pt (accurate)
+  model_path: "yolov8n.pt"
+
+  # Minimum confidence for vehicle detection (0.0 - 1.0)
+  confidence_threshold: 0.5
+
+  # Minimum overlap between vehicle and spot to consider occupied (0.0 - 1.0)
+  min_overlap: 0.3
+
+  # How often to check for changes (seconds)
+  interval_seconds: 10
+
+  # Number of consecutive detections before changing state (prevents flapping)
+  hysteresis_count: 2
+
+api:
+  # API server bind address
+  host: "0.0.0.0"
+  port: 9878
+
+calibration:
+  # Enable automatic camera drift detection and recalibration
+  enabled: true
+
+  # Hour of day to run daily calibration check (0-23)
+  check_hour: 3
+
+  # Minimum camera shift in pixels to trigger recalibration
+  drift_threshold_pixels: 20.0
+
+  # Path to store reference image for drift detection
+  reference_image_path: "config/reference_calibration.jpg"

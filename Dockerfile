@@ -14,15 +14,18 @@ RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
 # Copy application code
 COPY src/ ./src/
 
+# Copy config files
+COPY config/ ./config/
+
 # Set Python path
 ENV PYTHONPATH=/app/src
 
 # Expose API port
-EXPOSE 8000
+EXPOSE 9878
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9878/api/v1/health')" || exit 1
 
 # Run the application
 CMD ["python", "-m", "parking_monitor.main"]

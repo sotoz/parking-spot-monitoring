@@ -4,9 +4,7 @@ services:
     image: parking-monitor:latest
     container_name: parking-monitor
     ports:
-      - "8000:8000"
-    volumes:
-      - ./config:/app/config
+      - "9878:9878"
     environment:
       - UFP_PASSWORD=${UFP_PASSWORD}
     restart: unless-stopped
