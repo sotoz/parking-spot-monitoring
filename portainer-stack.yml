@@ -1,24 +1,19 @@
-version: "3.8"
-
 services:
   parking-monitor:
+    build: .
     image: parking-monitor:latest
     container_name: parking-monitor
     restart: unless-stopped
     ports:
-      - "8000:8000"
-    volumes:
-      - ./config:/app/config
+      - "9878:9878"
     environment:
       - UFP_PASSWORD=${UFP_PASSWORD}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9878/api/v1/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
