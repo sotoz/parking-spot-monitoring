@@ -1,7 +1,6 @@
 services:
   parking-monitor:
-    build: .
-    image: parking-monitor:latest
+    image: ghcr.io/sotoz/parking-spot-monitoring:latest
     container_name: parking-monitor
     restart: unless-stopped
     ports:
