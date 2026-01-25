@@ -1,0 +1,239 @@
+# Parking Spot Monitoring
+
+Monitor parking spot availability using a Ubiquiti G4 Instant camera and YOLOv8 vehicle detection. Exposes a REST API to check if parking spots are available or occupied.
+
+## Features
+
+- Connects to UniFi Protect on UDM Pro to access camera snapshots
+- YOLOv8-based vehicle detection (car, truck, motorcycle, bus)
+- User-defined parking spot regions via GUI configuration tool
+- Hysteresis-based state management (prevents false positives)
+- REST API for querying parking availability
+- Docker deployment
+
+## Architecture
+
+```
+UniFi Protect (UDM Pro) → Detection Engine (YOLOv8) → FastAPI REST API
+         ↓                        ↓                        ↓
+     Snapshots              Vehicle Detection         /api/v1/status
+    (every 10s)            + Region Overlap          /api/v1/spots/{id}
+                                  ↓                  /api/v1/snapshot
+                           State Manager
+                         (with hysteresis)
+```
+
+## Prerequisites
+
+- Docker Desktop (for Windows)
+- UniFi Protect running on UDM Pro
+- G4 Instant camera (or any UniFi Protect camera)
+- Local access user on UDM Pro (not Ubiquiti SSO account)
+
+## Quick Start
+
+### 1. Create Configuration
+
+Copy the example config and update with your settings:
+
+```bash
+cp config/config.yaml.example config/config.yaml
+```
+
+Edit `config/config.yaml`:
+- Set `host` to your UDM Pro IP address
+- Set `username` to your local access username
+- Set `camera_id` to your camera name (as shown in UniFi Protect)
+
+### 2. Set Password
+
+Create a `.env` file with your UniFi Protect password:
+
+```bash
+echo "UFP_PASSWORD=your_password_here" > .env
+```
+
+### 3. Define Parking Spots
+
+You need to capture a camera snapshot and draw rectangles to define your parking spots.
+
+**Option A: Use the GUI tool (requires Python locally)**
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Capture a snapshot
+python -m config_tool.snapshot_capture
+
+# Draw parking spots on the snapshot
+python -m config_tool.gui config/reference_snapshot.jpg
+```
+
+**Option B: Create spots.json manually**
+
+Copy the example and edit coordinates to match your camera view:
+
+```bash
+cp config/spots.example.json config/spots.json
+```
+
+### 4. Build and Run with Docker
+
+```bash
+docker-compose up --build
+```
+
+The API will be available at `http://localhost:8000`
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/health` | Health check |
+| `GET /api/v1/status` | Overall parking status (all spots) |
+| `GET /api/v1/spots/{spot_id}` | Status for specific spot |
+| `GET /api/v1/snapshot` | Raw camera snapshot (JPEG) |
+| `GET /api/v1/snapshot/annotated` | Snapshot with spot overlays |
+| `GET /api/v1/cameras` | List available cameras |
+
+### Example Response
+
+```json
+GET /api/v1/status
+
+{
+  "total_spots": 3,
+  "available": 1,
+  "occupied": 2,
+  "unknown": 0,
+  "spots": [
+    {
+      "id": "spot_1",
+      "name": "Left Spot",
+      "status": "occupied",
+      "vehicle_type": "car",
+      "confidence": 0.92,
+      "last_changed": "2025-01-25T10:30:00Z",
+      "last_checked": "2025-01-25T10:35:00Z"
+    },
+    {
+      "id": "spot_2",
+      "name": "Middle Spot",
+      "status": "available",
+      "vehicle_type": null,
+      "confidence": null,
+      "last_changed": "2025-01-25T09:15:00Z",
+      "last_checked": "2025-01-25T10:35:00Z"
+    }
+  ],
+  "last_update": "2025-01-25T10:35:00Z",
+  "camera_connected": true
+}
+```
+
+## Auto-Calibration
+
+The application includes automatic camera drift detection. If your camera gets accidentally moved, it will detect the shift and recalibrate the parking spot positions.
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/v1/calibration/check` | Check for camera drift |
+| `POST /api/v1/calibration/recalibrate` | Force recalibration |
+| `POST /api/v1/calibration/reset-reference` | Reset reference image |
+
+Configuration options in `config.yaml`:
+```yaml
+calibration:
+  enabled: true
+  check_hour: 3                 # Run daily at 3 AM
+  drift_threshold_pixels: 20.0  # Min shift to trigger recalibration
+```
+
+## Portainer Deployment
+
+For deploying to Portainer using Git repository integration, see [PORTAINER_DEPLOYMENT.md](PORTAINER_DEPLOYMENT.md).
+
+## Configuration
+
+### config/config.yaml
+
+```yaml
+camera:
+  host: "192.168.1.1"      # UDM Pro IP
+  port: 443
+  username: "parking-user"  # Local access user
+  password: "${UFP_PASSWORD}"
+  verify_ssl: false
+  camera_id: "Front Driveway"
+  snapshot_width: 1920
+  snapshot_height: 1080
+
+detection:
+  model_path: "yolov8n.pt"
+  confidence_threshold: 0.5
+  min_overlap: 0.3
+  interval_seconds: 10
+  hysteresis_count: 2
+
+calibration:
+  enabled: true
+  check_hour: 3
+  drift_threshold_pixels: 20.0
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+```
+
+### config/spots.json
+
+Generated by the GUI tool or created manually:
+
+```json
+{
+  "spots": [
+    {
+      "id": "spot_1",
+      "name": "Left Spot",
+      "polygon": [[100, 400], [400, 400], [400, 700], [100, 700]]
+    }
+  ],
+  "image_dimensions": {
+    "width": 1920,
+    "height": 1080
+  }
+}
+```
+
+## Creating a Local Access User
+
+1. Log into your UDM Pro web interface
+2. Go to **Settings** → **Admins & Users**
+3. Click **Add Admin**
+4. Choose **Local Access Only** (not Ubiquiti account)
+5. Set a username and password
+6. Grant access to UniFi Protect (view permissions are sufficient)
+
+## Troubleshooting
+
+### Camera not found
+
+Run the cameras endpoint to see available cameras:
+```bash
+curl http://localhost:8000/api/v1/cameras
+```
+
+Use the exact camera name from the list in your config.
+
+### Detection not working
+
+1. Check if spots are defined: `config/spots.json` should exist
+2. View annotated snapshot to verify spot positions: `http://localhost:8000/api/v1/snapshot/annotated`
+3. Check logs: `docker-compose logs -f`
+
+### Connection refused to UniFi Protect
+
+1. Verify UDM Pro IP is correct
+2. Ensure local access user has Protect permissions
+3. Check if firewall allows connection from Docker container

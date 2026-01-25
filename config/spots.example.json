@@ -1,0 +1,23 @@
+{
+  "spots": [
+    {
+      "id": "spot_1",
+      "name": "Left Spot",
+      "polygon": [[100, 400], [400, 400], [400, 700], [100, 700]]
+    },
+    {
+      "id": "spot_2",
+      "name": "Middle Spot",
+      "polygon": [[450, 400], [750, 400], [750, 700], [450, 700]]
+    },
+    {
+      "id": "spot_3",
+      "name": "Right Spot",
+      "polygon": [[800, 400], [1100, 400], [1100, 700], [800, 700]]
+    }
+  ],
+  "image_dimensions": {
+    "width": 1920,
+    "height": 1080
+  }
+}

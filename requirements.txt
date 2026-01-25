@@ -1,0 +1,14 @@
+# Core API
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+pyyaml>=6.0
+
+# UniFi Protect API
+uiprotect>=6.0.0
+
+# Computer Vision & Detection
+ultralytics>=8.1.0
+opencv-python>=4.9.0
+numpy>=1.24.0
