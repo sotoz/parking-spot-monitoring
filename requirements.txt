@@ -10,5 +10,5 @@ uiprotect>=6.0.0
 
 # Computer Vision & Detection
 ultralytics>=8.1.0
-opencv-python>=4.9.0
+opencv-python-headless>=4.9.0
 numpy>=1.24.0
