@@ -38,6 +38,7 @@ class DetectionConfig(BaseModel):
     min_overlap: float = 0.3  # Minimum overlap to consider spot occupied
     interval_seconds: int = 10  # Detection interval
     hysteresis_count: int = 2  # Consecutive detections before state change
+    enhance_low_light: bool = True  # Apply CLAHE enhancement for night detection
 
 
 class APIConfig(BaseModel):

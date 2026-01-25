@@ -29,6 +29,7 @@ class VehicleDetector:
 
     Uses a pre-trained YOLO model to detect vehicles in images.
     Filters results to only include vehicle classes (car, motorcycle, bus, truck).
+    Includes low-light image enhancement for better night detection.
     """
 
     # COCO class IDs for vehicles
@@ -44,6 +45,7 @@ class VehicleDetector:
         model_path: str = "yolov8n.pt",
         confidence_threshold: float = 0.5,
         device: Optional[str] = None,
+        enhance_low_light: bool = True,
     ):
         """
         Initialize the vehicle detector.
@@ -52,12 +54,60 @@ class VehicleDetector:
             model_path: Path to YOLO model weights (will download if not found)
             confidence_threshold: Minimum confidence for detections
             device: Device to run on ('cpu', 'cuda', or None for auto)
+            enhance_low_light: Apply CLAHE enhancement for better night detection
         """
         logger.info(f"Loading YOLO model: {model_path}")
         self.model = YOLO(model_path)
         self.confidence_threshold = confidence_threshold
         self.device = device
-        logger.info("YOLO model loaded successfully")
+        self.enhance_low_light = enhance_low_light
+
+        # CLAHE for low-light enhancement
+        self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+
+        logger.info(f"YOLO model loaded successfully (low-light enhancement: {enhance_low_light})")
+
+    def _enhance_image(self, image: np.ndarray) -> np.ndarray:
+        """
+        Enhance image for better low-light detection using CLAHE.
+
+        Args:
+            image: BGR image as numpy array
+
+        Returns:
+            Enhanced image
+        """
+        # Convert to LAB color space
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+
+        # Split channels
+        l, a, b = cv2.split(lab)
+
+        # Apply CLAHE to L channel (luminance)
+        l_enhanced = self.clahe.apply(l)
+
+        # Merge channels back
+        lab_enhanced = cv2.merge([l_enhanced, a, b])
+
+        # Convert back to BGR
+        enhanced = cv2.cvtColor(lab_enhanced, cv2.COLOR_LAB2BGR)
+
+        return enhanced
+
+    def _is_low_light(self, image: np.ndarray, threshold: int = 80) -> bool:
+        """
+        Check if image is low-light based on average brightness.
+
+        Args:
+            image: BGR image as numpy array
+            threshold: Brightness threshold (0-255)
+
+        Returns:
+            True if image is considered low-light
+        """
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        avg_brightness = np.mean(gray)
+        return avg_brightness < threshold
 
     def detect_vehicles(self, image: np.ndarray) -> list[Detection]:
         """
@@ -69,9 +119,15 @@ class VehicleDetector:
         Returns:
             List of Detection objects for vehicles found
         """
+        # Apply low-light enhancement if enabled and image is dark
+        processed_image = image
+        if self.enhance_low_light and self._is_low_light(image):
+            logger.debug("Low-light detected, applying image enhancement")
+            processed_image = self._enhance_image(image)
+
         # Run inference
         results = self.model(
-            image,
+            processed_image,
             conf=self.confidence_threshold,
             device=self.device,
             verbose=False,

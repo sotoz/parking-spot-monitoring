@@ -236,6 +236,7 @@ async def lifespan(app: FastAPI):
     detector = VehicleDetector(
         model_path=config.detection.model_path,
         confidence_threshold=config.detection.confidence_threshold,
+        enhance_low_light=config.detection.enhance_low_light,
     )
     logger.info("Loaded YOLOv8 model")
 

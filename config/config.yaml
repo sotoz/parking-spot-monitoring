@@ -39,6 +39,9 @@ detection:
   # Number of consecutive detections before changing state (prevents flapping)
   hysteresis_count: 2
 
+  # Enhance low-light images for better night detection (uses CLAHE)
+  enhance_low_light: true
+
 api:
   # API server bind address
   host: "0.0.0.0"

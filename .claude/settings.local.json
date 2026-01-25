@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:uiprotect.readthedocs.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(docker build:*)",
+      "Bash(iconv:*)",
+      "Bash(docker run:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(curl:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker-compose down)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker compose exec:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker compose build:*)",
+      "Bash(git init:*)",
+      "Bash(where:*)",
+      "Bash(gh auth status:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)"
+    ]
+  }
+}
