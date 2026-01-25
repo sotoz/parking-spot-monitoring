@@ -91,8 +91,22 @@ async def run_detection_loop(interval_seconds: int = 10) -> None:
         await asyncio.sleep(interval_seconds)
 
 
-def load_spots_config(path: str | Path) -> list[ParkingSpot]:
-    """Load parking spot definitions from JSON file."""
+def load_spots_config(
+    path: str | Path,
+    target_width: int = None,
+    target_height: int = None,
+) -> list[ParkingSpot]:
+    """
+    Load parking spot definitions from JSON file.
+
+    Args:
+        path: Path to spots.json file
+        target_width: Target image width (for scaling)
+        target_height: Target image height (for scaling)
+
+    Returns:
+        List of ParkingSpot objects, scaled to target resolution if specified
+    """
     spots_path = Path(path)
 
     if not spots_path.exists():
@@ -103,7 +117,23 @@ def load_spots_config(path: str | Path) -> list[ParkingSpot]:
     with open(spots_path) as f:
         data = json.load(f)
 
-    return [ParkingSpot.from_dict(s) for s in data["spots"]]
+    spots = [ParkingSpot.from_dict(s) for s in data["spots"]]
+
+    # Scale spots if target dimensions are specified and different from source
+    if target_width and target_height and "image_dimensions" in data:
+        src_width = data["image_dimensions"].get("width", target_width)
+        src_height = data["image_dimensions"].get("height", target_height)
+
+        if src_width != target_width or src_height != target_height:
+            logger.info(
+                f"Scaling spots from {src_width}x{src_height} to {target_width}x{target_height}"
+            )
+            spots = [
+                spot.scale(src_width, src_height, target_width, target_height)
+                for spot in spots
+            ]
+
+    return spots
 
 
 async def run_calibration_loop(check_hour: int = 3) -> None:
@@ -154,9 +184,13 @@ async def run_calibration_loop(check_hour: int = 3) -> None:
                     if recalibrated:
                         logger.info("Camera drift detected and spots recalibrated!")
 
-                        # Reload spots configuration
+                        # Reload spots configuration (scaled to snapshot resolution)
                         spots_path = Path("config/spots.json")
-                        new_spots = load_spots_config(spots_path)
+                        new_spots = load_spots_config(
+                            spots_path,
+                            target_width=config.camera.snapshot_width,
+                            target_height=config.camera.snapshot_height,
+                        )
 
                         if new_spots:
                             # Update global spots
@@ -208,9 +242,13 @@ async def lifespan(app: FastAPI):
     config = load_config(config_path)
     logger.info(f"Loaded configuration from {config_path}")
 
-    # Load parking spot definitions
+    # Load parking spot definitions (scaled to snapshot resolution)
     spots_path = Path("config/spots.json")
-    spots = load_spots_config(spots_path)
+    spots = load_spots_config(
+        spots_path,
+        target_width=config.camera.snapshot_width,
+        target_height=config.camera.snapshot_height,
+    )
 
     if not spots:
         logger.warning("No parking spots defined - detection will not work")
@@ -297,7 +335,11 @@ async def lifespan(app: FastAPI):
         # Function to reload spots after recalibration
         async def reload_spots_after_calibration():
             global spots, spot_manager
-            new_spots = load_spots_config("config/spots.json")
+            new_spots = load_spots_config(
+                "config/spots.json",
+                target_width=config.camera.snapshot_width,
+                target_height=config.camera.snapshot_height,
+            )
             if new_spots:
                 spots.clear()
                 spots.extend(new_spots)

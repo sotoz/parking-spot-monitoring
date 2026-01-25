@@ -21,6 +21,39 @@ class ParkingSpot:
         ys = [p[1] for p in self.polygon]
         return (min(xs), min(ys), max(xs), max(ys))
 
+    def scale(
+        self,
+        from_width: int,
+        from_height: int,
+        to_width: int,
+        to_height: int,
+    ) -> "ParkingSpot":
+        """
+        Scale polygon coordinates from one resolution to another.
+
+        Args:
+            from_width: Original image width
+            from_height: Original image height
+            to_width: Target image width
+            to_height: Target image height
+
+        Returns:
+            New ParkingSpot with scaled coordinates
+        """
+        scale_x = to_width / from_width
+        scale_y = to_height / from_height
+
+        scaled_polygon = [
+            (int(x * scale_x), int(y * scale_y))
+            for x, y in self.polygon
+        ]
+
+        return ParkingSpot(
+            id=self.id,
+            name=self.name,
+            polygon=scaled_polygon,
+        )
+
     @classmethod
     def from_dict(cls, data: dict) -> "ParkingSpot":
         """Create ParkingSpot from dictionary."""
