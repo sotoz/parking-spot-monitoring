@@ -1,97 +1,92 @@
 # Portainer Deployment Guide
 
-This guide explains how to deploy the Parking Spot Monitor to Portainer without using a public registry.
+This guide explains how to deploy the Parking Spot Monitor to Portainer using the pre-built Docker image from GitHub Container Registry.
 
-## Option 1: Build on Portainer Host (Recommended)
+## Prerequisites
 
-### Step 1: Transfer files to your Portainer host
+- Portainer Business Edition (or Community with registry support)
+- GitHub account with access to the repository
 
-Copy the project to your Portainer host:
-```bash
-# From your local machine, use scp or rsync
-scp -r /path/to/parking_spot_monitoring user@portainer-host:/opt/stacks/parking-monitor
+---
+
+## Deployment Steps (Recommended)
+
+### Step 1: Create GitHub Personal Access Token
+
+1. Go to https://github.com/settings/tokens
+2. Click **Generate new token (classic)**
+3. Name: `portainer-ghcr`
+4. Select scope: **read:packages**
+5. Generate and **copy the token**
+
+### Step 2: Add GitHub Container Registry to Portainer
+
+1. In Portainer, go to **Registries** → **Add registry**
+2. Select **Custom registry**
+3. Configure:
+   - **Name**: `GitHub Container Registry`
+   - **Registry URL**: `ghcr.io`
+   - **Authentication**: On
+   - **Username**: your GitHub username
+   - **Password**: the token from Step 1
+4. Click **Add registry**
+
+### Step 3: Deploy the Stack
+
+1. Go to **Stacks** → **Add stack**
+2. **Name**: `parking-monitor`
+3. **Build method**: Web editor
+4. Paste the following:
+
+```yaml
+services:
+  parking-monitor:
+    image: ghcr.io/sotoz/parking-spot-monitoring:latest
+    container_name: parking-monitor
+    restart: unless-stopped
+    ports:
+      - "9878:9878"
+    environment:
+      - UFP_PASSWORD=${UFP_PASSWORD}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9878/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 ```
 
-### Step 2: Build the image on the host
-
-SSH into your Portainer host and build:
-```bash
-ssh user@portainer-host
-cd /opt/stacks/parking-monitor
-docker build -t parking-monitor:latest .
-```
-
-### Step 3: Create the stack in Portainer
-
-1. Go to **Stacks** > **Add stack**
-2. Name: `parking-monitor`
-3. Build method: **Web editor**
-4. Paste the contents of `portainer-stack.yml`
 5. Under **Environment variables**, add:
-   - `UFP_PASSWORD` = your UniFi Protect password
+   - **Name**: `UFP_PASSWORD`
+   - **Value**: your UniFi Protect password
 6. Click **Deploy the stack**
 
 ---
 
-## Option 2: Import Docker Image
+## Automatic Image Updates
 
-### Step 1: Export the image locally
+The Docker image is automatically built and pushed to GitHub Container Registry whenever changes are pushed to the `main` branch via GitHub Actions.
 
-On your Windows machine (where Docker Desktop is running):
-```powershell
-docker save parking_spot_monitoring-parking-monitor:latest -o parking-monitor.tar
-```
-
-### Step 2: Transfer to Portainer host
-```powershell
-scp parking-monitor.tar user@portainer-host:/tmp/
-```
-
-### Step 3: Load the image on Portainer host
-```bash
-ssh user@portainer-host
-docker load -i /tmp/parking-monitor.tar
-docker tag parking_spot_monitoring-parking-monitor:latest parking-monitor:latest
-rm /tmp/parking-monitor.tar
-```
-
-### Step 4: Deploy stack in Portainer
-
-Same as Option 1, Step 3.
+To update your deployment:
+1. Go to your stack in Portainer
+2. Click **Pull and redeploy**
 
 ---
 
-## Option 3: Portainer Git Repository (Business Edition)
+## Configuration
 
-Since you have Portainer Business, you can use the Git repository feature:
+The configuration is baked into the Docker image. To modify settings, update the files in the repository and push to trigger a new build:
 
-1. Push this project to a **private Git repository** (GitHub, GitLab, Gitea, etc.)
-2. In Portainer, go to **Stacks** > **Add stack**
-3. Build method: **Repository**
-4. Configure:
-   - Repository URL: `https://github.com/your-user/parking-spot-monitoring.git`
-   - Repository reference: `main`
-   - Compose path: `docker-compose.yml`
-   - Enable **Build image from Dockerfile**
-5. Add authentication if private repo
-6. Add environment variables:
-   - `UFP_PASSWORD` = your UniFi Protect password
-7. Click **Deploy the stack**
+- `config/config.yaml` - Main configuration
+- `config/spots.json` - Parking spot definitions
 
----
+### Current Configuration
 
-## Configuration Files
-
-Make sure to create the config directory on your Portainer host with:
-
-```
-/opt/stacks/parking-monitor/config/
-├── config.yaml          # Main configuration
-├── spots.json           # Parking spot definitions
-└── reference_calibration.jpg  # (auto-generated)
-```
-
-### config.yaml
 ```yaml
 camera:
   host: "192.168.1.1"
@@ -112,13 +107,12 @@ detection:
 
 api:
   host: "0.0.0.0"
-  port: 8000
+  port: 9878
 
 calibration:
   enabled: true
   check_hour: 3
   drift_threshold_pixels: 20.0
-  reference_image_path: "config/reference_calibration.jpg"
 ```
 
 ---
@@ -128,7 +122,7 @@ calibration:
 After deployment, verify the service is running:
 
 ```bash
-curl http://your-portainer-host:8000/api/v1/health
+curl http://your-portainer-host:9878/api/v1/health
 ```
 
 Expected response:
@@ -141,14 +135,49 @@ Expected response:
 }
 ```
 
+---
+
 ## API Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/v1/health` | Health check |
-| `GET /api/v1/status` | All parking spots status |
-| `GET /api/v1/spots/{id}` | Single spot status |
-| `GET /api/v1/snapshot` | Raw camera image |
-| `GET /api/v1/snapshot/annotated` | Image with spot overlays |
-| `POST /api/v1/calibration/check` | Check for camera drift |
-| `POST /api/v1/calibration/recalibrate` | Force recalibration |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/health` | GET | Health check |
+| `/api/v1/status` | GET | All parking spots status |
+| `/api/v1/spots/{id}` | GET | Single spot status |
+| `/api/v1/snapshot` | GET | Raw camera image (JPEG) |
+| `/api/v1/snapshot/annotated` | GET | Image with spot overlays |
+| `/api/v1/cameras` | GET | List available cameras |
+| `/api/v1/calibration/check` | POST | Check for camera drift |
+| `/api/v1/calibration/recalibrate` | POST | Force recalibration |
+| `/api/v1/calibration/reset-reference` | POST | Reset reference image |
+
+---
+
+## Troubleshooting
+
+### "denied" error when deploying
+
+Portainer can't authenticate to ghcr.io. Verify:
+1. Registry is added in Portainer with correct credentials
+2. GitHub token has `read:packages` scope
+3. Token hasn't expired
+
+### NNPACK warning in logs
+
+```
+Could not initialize NNPACK! Reason: Unsupported hardware.
+```
+
+This is harmless - PyTorch falls back to standard CPU operations. Add this to suppress:
+```yaml
+environment:
+  - UFP_PASSWORD=${UFP_PASSWORD}
+  - TORCH_NNPACK_ENABLED=0
+```
+
+### Container keeps restarting
+
+Check logs in Portainer. Common issues:
+- Wrong UniFi Protect password
+- UDM Pro not reachable from container
+- Camera name doesn't match
