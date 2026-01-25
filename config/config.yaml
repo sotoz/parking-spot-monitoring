@@ -28,7 +28,8 @@ detection:
   model_path: "yolov8n.pt"
 
   # Minimum confidence for vehicle detection (0.0 - 1.0)
-  confidence_threshold: 0.5
+  # Lower threshold (0.35) helps with night/low-light detection
+  confidence_threshold: 0.35
 
   # Minimum overlap between vehicle and spot to consider occupied (0.0 - 1.0)
   min_overlap: 0.3

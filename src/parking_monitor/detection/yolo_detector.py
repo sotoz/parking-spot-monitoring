@@ -62,8 +62,8 @@ class VehicleDetector:
         self.device = device
         self.enhance_low_light = enhance_low_light
 
-        # CLAHE for low-light enhancement
-        self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        # CLAHE for low-light enhancement (increased clipLimit for better night detection)
+        self.clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
 
         logger.info(f"YOLO model loaded successfully (low-light enhancement: {enhance_low_light})")
 
@@ -94,7 +94,7 @@ class VehicleDetector:
 
         return enhanced
 
-    def _is_low_light(self, image: np.ndarray, threshold: int = 80) -> bool:
+    def _is_low_light(self, image: np.ndarray, threshold: int = 100) -> bool:
         """
         Check if image is low-light based on average brightness.
 
