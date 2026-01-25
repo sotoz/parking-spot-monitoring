@@ -37,6 +37,8 @@ spots: list[ParkingSpot] = []
 config: AppConfig | None = None
 detection_task: asyncio.Task | None = None
 calibration_task: asyncio.Task | None = None
+actual_image_width: int = 0
+actual_image_height: int = 0
 
 
 async def run_detection_loop(interval_seconds: int = 10) -> None:
@@ -147,6 +149,7 @@ async def run_calibration_loop(check_hour: int = 3) -> None:
         check_hour: Hour of day (0-23) to run the calibration check
     """
     global camera_client, detector, auto_calibrator, spots, spot_manager, config
+    global actual_image_width, actual_image_height
 
     logger.info(f"Starting daily calibration loop (check at {check_hour:02d}:00)")
 
@@ -184,12 +187,12 @@ async def run_calibration_loop(check_hour: int = 3) -> None:
                     if recalibrated:
                         logger.info("Camera drift detected and spots recalibrated!")
 
-                        # Reload spots configuration (scaled to snapshot resolution)
+                        # Reload spots configuration (scaled to actual image resolution)
                         spots_path = Path("config/spots.json")
                         new_spots = load_spots_config(
                             spots_path,
-                            target_width=config.camera.snapshot_width,
-                            target_height=config.camera.snapshot_height,
+                            target_width=actual_image_width,
+                            target_height=actual_image_height,
                         )
 
                         if new_spots:
@@ -242,19 +245,7 @@ async def lifespan(app: FastAPI):
     config = load_config(config_path)
     logger.info(f"Loaded configuration from {config_path}")
 
-    # Load parking spot definitions (scaled to snapshot resolution)
-    spots_path = Path("config/spots.json")
-    spots = load_spots_config(
-        spots_path,
-        target_width=config.camera.snapshot_width,
-        target_height=config.camera.snapshot_height,
-    )
-
-    if not spots:
-        logger.warning("No parking spots defined - detection will not work")
-        logger.warning("Run: python -m config_tool.gui to define spots")
-
-    # Initialize camera client
+    # Initialize camera client first to detect actual image resolution
     camera_client = UniFiProtectClient(
         host=config.camera.host,
         username=config.camera.username,
@@ -269,6 +260,36 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to connect to UniFi Protect: {e}")
         logger.error("Check your camera configuration in config/config.yaml")
+
+    # Detect actual image resolution from camera
+    global actual_image_width, actual_image_height
+    actual_image_width = config.camera.snapshot_width
+    actual_image_height = config.camera.snapshot_height
+    try:
+        test_snapshot = await camera_client.get_snapshot(
+            config.camera.camera_id,
+            config.camera.snapshot_width,
+            config.camera.snapshot_height,
+        )
+        nparr = np.frombuffer(test_snapshot, np.uint8)
+        test_image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if test_image is not None:
+            actual_image_height, actual_image_width = test_image.shape[:2]
+            logger.info(f"Detected actual camera resolution: {actual_image_width}x{actual_image_height}")
+    except Exception as e:
+        logger.warning(f"Could not detect camera resolution: {e}")
+
+    # Load parking spot definitions (scaled to actual image resolution)
+    spots_path = Path("config/spots.json")
+    spots = load_spots_config(
+        spots_path,
+        target_width=actual_image_width,
+        target_height=actual_image_height,
+    )
+
+    if not spots:
+        logger.warning("No parking spots defined - detection will not work")
+        logger.warning("Run: python -m config_tool.gui to define spots")
 
     # Initialize detector
     detector = VehicleDetector(
@@ -334,11 +355,11 @@ async def lifespan(app: FastAPI):
 
         # Function to reload spots after recalibration
         async def reload_spots_after_calibration():
-            global spots, spot_manager
+            global spots, spot_manager, actual_image_width, actual_image_height
             new_spots = load_spots_config(
                 "config/spots.json",
-                target_width=config.camera.snapshot_width,
-                target_height=config.camera.snapshot_height,
+                target_width=actual_image_width,
+                target_height=actual_image_height,
             )
             if new_spots:
                 spots.clear()
