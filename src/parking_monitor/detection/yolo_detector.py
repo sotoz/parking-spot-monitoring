@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from ..metrics import increment_low_light_enhancements
+
 logger = logging.getLogger(__name__)
 
 
@@ -124,6 +126,7 @@ class VehicleDetector:
         if self.enhance_low_light and self._is_low_light(image):
             logger.debug("Low-light detected, applying image enhancement")
             processed_image = self._enhance_image(image)
+            increment_low_light_enhancements()
 
         # Run inference
         results = self.model(

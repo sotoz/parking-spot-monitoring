@@ -10,6 +10,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Response
 
 from ..detection.region_overlap import ParkingSpot
+from ..metrics import get_metrics
 from ..state.models import SpotStatus
 from ..state.spot_manager import SpotManager
 from .schemas import (
@@ -378,3 +379,24 @@ async def reset_calibration_reference():
         raise HTTPException(
             status_code=500, detail=f"Failed to reset reference: {e}"
         )
+
+
+@router.get("/metrics")
+async def prometheus_metrics() -> Response:
+    """
+    Prometheus metrics endpoint.
+
+    Returns metrics in Prometheus text format including:
+    - parking_detection_confidence: Histogram of detection confidence scores
+    - parking_detection_latency_seconds: Histogram of detection cycle latency
+    - parking_spot_state_changes_total: Counter of state changes by spot and hour
+    - parking_spot_occupied: Gauge of current spot status (1=occupied, 0=available)
+    - parking_spots_total: Total number of parking spots
+    - parking_spots_available: Number of available spots
+    - parking_spots_occupied: Number of occupied spots
+    - parking_detection_cycles_total: Total detection cycles run
+    """
+    return Response(
+        content=get_metrics(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from ..detection.region_overlap import VehicleMatch
+from ..metrics import record_spot_change, update_spot_status, update_spot_counts, record_detection_confidence
 from .models import ParkingSpotState, SpotStatus, SystemState, VehicleInfo
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,37 @@ class SpotManager:
                 logger.info(
                     f"Spot '{spot.name}' changed: {old_status.value} -> {detected_status.value}"
                 )
+
+                # Record metrics for state change
+                record_spot_change(
+                    spot_id=spot_id,
+                    spot_name=spot.name,
+                    became_occupied=(detected_status == SpotStatus.OCCUPIED),
+                    hour=now.hour,
+                )
+
+            # Record confidence metrics when vehicle detected
+            if vehicle_match:
+                record_detection_confidence(
+                    spot_id=spot_id,
+                    spot_name=self.spots[spot_id].name,
+                    confidence=vehicle_match.confidence,
+                )
+
+        # Update spot status gauges
+        for spot_id, spot in self.spots.items():
+            update_spot_status(
+                spot_id=spot_id,
+                spot_name=spot.name,
+                is_occupied=(spot.status == SpotStatus.OCCUPIED),
+            )
+
+        # Update overall counts
+        update_spot_counts(
+            total=len(self.spots),
+            available=self.get_available_count(),
+            occupied=self.get_occupied_count(),
+        )
 
         return changed_spots
 

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import sys
+import time as time_module
 from contextlib import asynccontextmanager
 from datetime import datetime, time
 from pathlib import Path
@@ -19,6 +20,7 @@ from .camera.unifi_protect import UniFiProtectClient
 from .config import AppConfig, load_config
 from .detection.region_overlap import ParkingSpot, match_vehicles_to_spots
 from .detection.yolo_detector import VehicleDetector
+from .metrics import record_detection_latency, increment_detection_cycles
 from .state.spot_manager import SpotManager
 
 # Configure logging
@@ -59,6 +61,9 @@ async def run_detection_loop(interval_seconds: int = 10) -> None:
                 await asyncio.sleep(interval_seconds)
                 continue
 
+            # Start timing the detection cycle
+            detection_start = time_module.perf_counter()
+
             # Get snapshot from camera
             image_bytes = await camera_client.get_snapshot(
                 config.camera.camera_id,
@@ -82,8 +87,12 @@ async def run_detection_loop(interval_seconds: int = 10) -> None:
             # Update spot manager
             changed = spot_manager.update_from_detection(spot_status)
 
-            if changed:
-                logger.info(f"Spot state changed: {changed}")
+            # Record detection latency
+            detection_latency = time_module.perf_counter() - detection_start
+            record_detection_latency(detection_latency)
+            increment_detection_cycles()
+
+            logger.debug(f"Detection cycle completed in {detection_latency:.3f}s")
 
         except Exception as e:
             logger.error(f"Detection loop error: {e}")
