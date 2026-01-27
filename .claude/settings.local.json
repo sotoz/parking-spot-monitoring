@@ -26,7 +26,11 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "Bash(git pull:*)",
-      "WebFetch(domain:parking.kotsanation.org)"
+      "WebFetch(domain:parking.kotsanation.org)",
+      "Bash(python -c:*)",
+      "Bash(gh run list:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }
