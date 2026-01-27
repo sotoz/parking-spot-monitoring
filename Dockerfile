@@ -27,6 +27,9 @@ COPY config/ ./config/
 # Set Python path
 ENV PYTHONPATH=/app/src
 
+# Suppress NNPACK warning (not supported on all hardware)
+ENV TORCH_NNPACK_ENABLED=0
+
 # Expose API port
 EXPOSE 9878
 
