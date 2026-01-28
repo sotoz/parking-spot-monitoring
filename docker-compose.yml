@@ -5,6 +5,8 @@ services:
     container_name: parking-monitor
     ports:
       - "9878:9878"
+    volumes:
+      - ./config:/app/config
     environment:
       - UFP_PASSWORD=${UFP_PASSWORD}
     restart: unless-stopped
