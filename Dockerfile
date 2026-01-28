@@ -30,6 +30,9 @@ ENV PYTHONPATH=/app/src
 # Suppress NNPACK warning (not supported on all hardware)
 ENV TORCH_NNPACK_ENABLED=0
 
+# Reduce FFmpeg verbosity to suppress HEVC codec warnings
+ENV OPENCV_FFMPEG_LOGLEVEL=-8
+
 # Expose API port
 EXPOSE 9878
 
