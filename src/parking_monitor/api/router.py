@@ -419,3 +419,53 @@ async def prometheus_metrics() -> Response:
         content=get_metrics(),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+
+@router.get("/camera/info")
+async def camera_info():
+    """
+    Get detailed camera configuration and channel information.
+    """
+    if _get_snapshot_func is None:
+        raise HTTPException(status_code=503, detail="Camera not configured")
+
+    try:
+        import asyncio
+        from ..main import camera_client, config
+
+        if not camera_client or not camera_client.is_connected:
+            raise HTTPException(status_code=503, detail="Camera not connected")
+
+        # Get camera object
+        camera = camera_client._camera_cache.get(config.camera.camera_id.lower())
+        if not camera:
+            raise HTTPException(status_code=404, detail="Camera not found")
+
+        channels_info = []
+        if hasattr(camera, 'channels') and camera.channels:
+            for idx, ch in enumerate(camera.channels):
+                channels_info.append({
+                    "index": idx,
+                    "width": ch.width,
+                    "height": ch.height,
+                    "fps": ch.fps,
+                    "bitrate": ch.bitrate,
+                    "is_rtsp_enabled": ch.is_rtsp_enabled if hasattr(ch, 'is_rtsp_enabled') else None,
+                })
+
+        return {
+            "camera_name": camera.name,
+            "camera_id": camera.id,
+            "model": camera.type if hasattr(camera, 'type') else None,
+            "is_connected": camera.is_connected if hasattr(camera, 'is_connected') else None,
+            "channels": channels_info,
+            "requested_resolution": {
+                "width": config.camera.snapshot_width,
+                "height": config.camera.snapshot_height,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get camera info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get camera info: {e}")

@@ -1,8 +1,11 @@
 """UniFi Protect API client for camera snapshot access."""
 
+import io
 import logging
 from typing import Optional
 
+import cv2
+import numpy as np
 from uiprotect import ProtectApiClient
 from uiprotect.data import Camera
 
@@ -108,8 +111,53 @@ class UniFiProtectClient:
                 f"Camera '{camera_id}' not found. Available cameras: {available}"
             )
 
-        logger.debug(f"Fetching snapshot from camera '{camera.name}'")
+        # Try to get high-quality snapshot from RTSP stream (channel 0)
+        # The standard get_snapshot() returns low-quality preview
+        if hasattr(camera, 'channels') and camera.channels and len(camera.channels) > 0:
+            high_channel = camera.channels[0]  # Channel 0 is usually highest quality
+            if hasattr(high_channel, 'is_rtsp_enabled') and high_channel.is_rtsp_enabled:
+                logger.debug(
+                    f"Using RTSP stream for snapshot: {high_channel.width}x{high_channel.height}"
+                )
+                try:
+                    # Get RTSP URL - uiprotect should provide this
+                    rtsp_url = None
+                    if hasattr(camera, 'rtsp_url'):
+                        rtsp_url = camera.rtsp_url
+                    elif hasattr(high_channel, 'rtsp_url'):
+                        rtsp_url = high_channel.rtsp_url
+                    elif hasattr(camera, 'get_rtsps_url'):
+                        rtsp_url = camera.get_rtsps_url()
+
+                    if rtsp_url:
+                        # Grab a frame from RTSP using OpenCV
+                        cap = cv2.VideoCapture(rtsp_url)
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffering
+
+                        ret, frame = cap.read()
+                        cap.release()
+
+                        if ret and frame is not None:
+                            # Resize if needed
+                            if width and height:
+                                frame = cv2.resize(frame, (width, height))
+
+                            # Encode to JPEG
+                            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+                            logger.debug(f"Captured RTSP frame: {len(buffer)} bytes")
+                            return buffer.tobytes()
+                        else:
+                            logger.warning("Failed to capture frame from RTSP, falling back to API")
+
+                except Exception as e:
+                    logger.warning(f"RTSP capture failed: {e}, falling back to API snapshot")
+
+        # Fallback to standard API snapshot (low quality)
+        logger.debug(f"Fetching API snapshot from camera '{camera.name}' at {width}x{height}")
         snapshot = await camera.get_snapshot(width=width, height=height)
+
+        if snapshot:
+            logger.debug(f"Received snapshot: {len(snapshot)} bytes")
 
         return snapshot
 
