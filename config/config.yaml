@@ -19,9 +19,10 @@ camera:
   # Camera name as shown in UniFi Protect, or the camera ID
   camera_id: "Buiten"
 
-  # Snapshot resolution (match your camera's aspect ratio)
-  snapshot_width: 1920
-  snapshot_height: 1080
+  # Snapshot resolution - G4 Instant supports up to 2K (2688x1512)
+  # Note: Camera must be set to High quality in UniFi Protect settings
+  snapshot_width: 2688
+  snapshot_height: 1512
 
 detection:
   # YOLOv8 model: yolov8n.pt (fast), yolov8s.pt (balanced), yolov8m.pt (accurate)

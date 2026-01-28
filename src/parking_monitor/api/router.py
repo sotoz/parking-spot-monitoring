@@ -216,27 +216,46 @@ async def get_annotated_snapshot() -> Response:
             cv2.fillPoly(overlay, [pts], color)
             cv2.addWeighted(overlay, 0.2, image, 0.8, 0, image)
 
-            # Draw label
-            center = np.mean(pts, axis=0).astype(int)
+            # Draw label - sized to fit inside the rectangle
+            x_coords = [p[0] for p in spot.polygon]
+            y_coords = [p[1] for p in spot.polygon]
+            box_width = max(x_coords) - min(x_coords)
+            box_height = max(y_coords) - min(y_coords)
+
             label = f"{spot.name}: {spot_state.status.value}"
 
+            # Calculate font scale to fit inside box (with padding)
+            max_label_width = box_width - 10
+            font_scale = 0.35
+            thickness = 1
+
+            # Adjust font scale if label is too wide
+            label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            if label_size[0] > max_label_width and max_label_width > 0:
+                font_scale = font_scale * (max_label_width / label_size[0])
+                font_scale = max(0.2, min(font_scale, 0.4))  # Clamp between 0.2 and 0.4
+                label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+
+            # Position label inside the box (top-left with padding)
+            label_x = min(x_coords) + 5
+            label_y = min(y_coords) + label_size[1] + 5
+
             # Background for label
-            label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
             cv2.rectangle(
                 image,
-                (center[0] - 5, center[1] - label_size[1] - 10),
-                (center[0] + label_size[0] + 5, center[1] + 5),
+                (label_x - 2, label_y - label_size[1] - 2),
+                (label_x + label_size[0] + 2, label_y + 4),
                 (0, 0, 0),
                 -1,
             )
             cv2.putText(
                 image,
                 label,
-                (center[0], center[1]),
+                (label_x, label_y),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
+                font_scale,
                 color,
-                2,
+                thickness,
             )
 
         # Encode annotated image
