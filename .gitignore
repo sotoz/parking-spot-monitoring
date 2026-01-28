@@ -37,8 +37,10 @@ env/
 .env
 *.env.local
 
-# Calibration reference images (auto-generated)
+# Calibration reference images and snapshots (auto-generated, not needed in repo)
 config/reference_calibration.jpg
+config/*snapshot*.jpg
+config/*snapshot*.png
 config/*.png
 
 # YOLOv8 model files (downloaded automatically)
