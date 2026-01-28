@@ -11,7 +11,6 @@ Monitor parking spot availability using a Ubiquiti G4 Instant camera and YOLOv8 
 - Automatic camera drift detection and recalibration
 - REST API for querying parking availability
 - Docker deployment with GitHub Container Registry
-- Portainer-ready with pre-built images
 
 ## Architecture
 
@@ -163,10 +162,6 @@ calibration:
   check_hour: 3                 # Run daily at 3 AM
   drift_threshold_pixels: 20.0  # Min shift to trigger recalibration
 ```
-
-## Portainer Deployment
-
-For deploying to Portainer using Git repository integration, see [PORTAINER_DEPLOYMENT.md](PORTAINER_DEPLOYMENT.md).
 
 ## Configuration
 
