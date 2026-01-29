@@ -2,12 +2,19 @@
 
 import io
 import logging
+import time
 from typing import Optional
 
 import cv2
 import numpy as np
 from uiprotect import ProtectApiClient
 from uiprotect.data import Camera
+
+from ..metrics import (
+    increment_rtsp_success,
+    increment_rtsp_failure,
+    increment_rtsp_retries,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +139,6 @@ class UniFiProtectClient:
                     if rtsp_url:
                         # Grab a frame from RTSP using OpenCV with retry logic
                         # HEVC streams can have codec errors when catching mid-sequence
-                        import time
-
                         max_retries = 3
                         for attempt in range(max_retries):
                             try:
@@ -141,6 +146,7 @@ class UniFiProtectClient:
                                 if not cap.isOpened():
                                     logger.warning(f"Failed to open RTSP stream (attempt {attempt + 1}/{max_retries})")
                                     if attempt < max_retries - 1:
+                                        increment_rtsp_retries()
                                         time.sleep(0.5)
                                     continue
 
@@ -161,18 +167,22 @@ class UniFiProtectClient:
                                     # Encode to JPEG
                                     _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
                                     logger.debug(f"Captured RTSP frame: {len(buffer)} bytes (attempt {attempt + 1})")
+                                    increment_rtsp_success()
                                     return buffer.tobytes()
                                 else:
                                     logger.debug(f"Failed to read frame (attempt {attempt + 1}/{max_retries})")
                                     if attempt < max_retries - 1:
+                                        increment_rtsp_retries()
                                         time.sleep(0.5)
 
                             except Exception as e:
                                 logger.debug(f"RTSP capture error (attempt {attempt + 1}/{max_retries}): {e}")
                                 if attempt < max_retries - 1:
+                                    increment_rtsp_retries()
                                     time.sleep(0.5)
                                 continue
 
+                        increment_rtsp_failure()
                         logger.warning("Failed to capture frame from RTSP after retries, falling back to API")
 
                 except Exception as e:

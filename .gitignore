@@ -57,3 +57,6 @@ parking-monitor.tar
 # OS
 .DS_Store
 Thumbs.db
+
+# Grafana dashboards (kept locally, not in repo)
+grafana/

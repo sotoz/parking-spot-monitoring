@@ -71,6 +71,46 @@ LOW_LIGHT_ENHANCEMENTS = Counter(
     registry=REGISTRY,
 )
 
+# Camera connection status gauge
+CAMERA_CONNECTED = Gauge(
+    "parking_camera_connected",
+    "Camera connection status (1=connected, 0=disconnected)",
+    registry=REGISTRY,
+)
+
+# RTSP capture metrics
+RTSP_CAPTURE_SUCCESS = Counter(
+    "parking_rtsp_capture_success_total",
+    "Number of successful RTSP frame captures",
+    registry=REGISTRY,
+)
+
+RTSP_CAPTURE_FAILURES = Counter(
+    "parking_rtsp_capture_failures_total",
+    "Number of failed RTSP frame captures",
+    registry=REGISTRY,
+)
+
+RTSP_CAPTURE_RETRIES = Counter(
+    "parking_rtsp_capture_retries_total",
+    "Number of RTSP capture retries",
+    registry=REGISTRY,
+)
+
+# Application uptime gauge (set once at startup, useful for restart detection)
+APP_START_TIME = Gauge(
+    "parking_app_start_time_seconds",
+    "Application start time as Unix timestamp",
+    registry=REGISTRY,
+)
+
+# Last successful detection timestamp
+LAST_DETECTION_TIME = Gauge(
+    "parking_last_detection_time_seconds",
+    "Timestamp of last successful detection cycle",
+    registry=REGISTRY,
+)
+
 
 def record_detection_confidence(spot_id: str, spot_name: str, confidence: float) -> None:
     """Record detection confidence for a spot."""
@@ -113,6 +153,36 @@ def increment_detection_cycles() -> None:
 def increment_low_light_enhancements() -> None:
     """Increment low-light enhancement counter."""
     LOW_LIGHT_ENHANCEMENTS.inc()
+
+
+def set_camera_connected(connected: bool) -> None:
+    """Set camera connection status."""
+    CAMERA_CONNECTED.set(1 if connected else 0)
+
+
+def increment_rtsp_success() -> None:
+    """Increment RTSP capture success counter."""
+    RTSP_CAPTURE_SUCCESS.inc()
+
+
+def increment_rtsp_failure() -> None:
+    """Increment RTSP capture failure counter."""
+    RTSP_CAPTURE_FAILURES.inc()
+
+
+def increment_rtsp_retries() -> None:
+    """Increment RTSP capture retry counter."""
+    RTSP_CAPTURE_RETRIES.inc()
+
+
+def set_app_start_time(timestamp: float) -> None:
+    """Set application start time."""
+    APP_START_TIME.set(timestamp)
+
+
+def set_last_detection_time(timestamp: float) -> None:
+    """Set last successful detection timestamp."""
+    LAST_DETECTION_TIME.set(timestamp)
 
 
 def get_metrics() -> bytes:

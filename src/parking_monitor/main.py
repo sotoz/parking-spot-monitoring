@@ -20,7 +20,13 @@ from .camera.unifi_protect import UniFiProtectClient
 from .config import AppConfig, load_config
 from .detection.region_overlap import ParkingSpot, match_vehicles_to_spots
 from .detection.yolo_detector import VehicleDetector
-from .metrics import record_detection_latency, increment_detection_cycles
+from .metrics import (
+    record_detection_latency,
+    increment_detection_cycles,
+    set_camera_connected,
+    set_app_start_time,
+    set_last_detection_time,
+)
 from .state.spot_manager import SpotManager
 
 # Configure logging
@@ -72,6 +78,7 @@ async def run_detection_loop(interval_seconds: int = 10) -> None:
             )
 
             spot_manager.set_camera_connected(True)
+            set_camera_connected(True)
 
             # Run vehicle detection
             detections = detector.detect_from_bytes(image_bytes)
@@ -87,10 +94,11 @@ async def run_detection_loop(interval_seconds: int = 10) -> None:
             # Update spot manager
             changed = spot_manager.update_from_detection(spot_status)
 
-            # Record detection latency
+            # Record detection latency and timestamp
             detection_latency = time_module.perf_counter() - detection_start
             record_detection_latency(detection_latency)
             increment_detection_cycles()
+            set_last_detection_time(time_module.time())
 
             logger.debug(f"Detection cycle completed in {detection_latency:.3f}s")
 
@@ -98,6 +106,7 @@ async def run_detection_loop(interval_seconds: int = 10) -> None:
             logger.error(f"Detection loop error: {e}")
             if spot_manager:
                 spot_manager.set_camera_connected(False)
+            set_camera_connected(False)
 
         await asyncio.sleep(interval_seconds)
 
@@ -243,6 +252,9 @@ async def lifespan(app: FastAPI):
     global spots, config, detection_task, calibration_task
 
     logger.info("Starting Parking Spot Monitor...")
+
+    # Record application start time
+    set_app_start_time(time_module.time())
 
     # Load configuration
     config_path = Path("config/config.yaml")
