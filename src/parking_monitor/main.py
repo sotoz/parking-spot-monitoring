@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .api.router import init_calibration_router, init_router, router
 from .calibration.auto_calibrator import AutoCalibrator
@@ -444,6 +445,15 @@ app = FastAPI(
     description="API for monitoring parking spot availability using computer vision",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# Add CORS middleware to allow cross-origin requests (e.g., from Grafana)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 app.include_router(router, prefix="/api/v1")
