@@ -5,8 +5,12 @@ services:
     container_name: parking-monitor
     ports:
       - "9878:9878"
+      # Uncomment for HTTPS on port 443
+      # - "443:9878"
     volumes:
       - ./config:/app/config
+      # Uncomment to mount SSL certificates for HTTPS
+      # - /etc/letsencrypt/live/yourdomain.com:/certs:ro
     environment:
       - UFP_PASSWORD=${UFP_PASSWORD}
     restart: unless-stopped

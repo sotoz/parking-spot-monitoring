@@ -51,8 +51,9 @@ api:
 
   # HTTPS configuration (optional)
   # Uncomment and set paths to enable HTTPS
-  # ssl_certfile: "/path/to/fullchain.pem"
-  # ssl_keyfile: "/path/to/privkey.pem"
+  # For Docker: mount certs to /certs and use these paths
+  # ssl_certfile: "/certs/fullchain.pem"
+  # ssl_keyfile: "/certs/privkey.pem"
 
 calibration:
   # Enable automatic camera drift detection and recalibration
