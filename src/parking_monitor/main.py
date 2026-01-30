@@ -482,10 +482,17 @@ def main():
         "reload": False,
     }
 
-    # Enable HTTPS if SSL certificates are configured
+    # Enable HTTPS if SSL certificates are configured and exist
     if ssl_certfile and ssl_keyfile:
-        uvicorn_kwargs["ssl_certfile"] = ssl_certfile
-        uvicorn_kwargs["ssl_keyfile"] = ssl_keyfile
+        cert_path = Path(ssl_certfile)
+        key_path = Path(ssl_keyfile)
+        if cert_path.exists() and key_path.exists():
+            uvicorn_kwargs["ssl_certfile"] = ssl_certfile
+            uvicorn_kwargs["ssl_keyfile"] = ssl_keyfile
+            print(f"HTTPS enabled with certificates from {ssl_certfile}")
+        else:
+            print(f"Warning: SSL certificates not found at {ssl_certfile} and {ssl_keyfile}")
+            print("Starting without HTTPS - running HTTP only")
 
     uvicorn.run("parking_monitor.main:app", **uvicorn_kwargs)
 
