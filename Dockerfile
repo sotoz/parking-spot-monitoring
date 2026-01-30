@@ -33,13 +33,12 @@ ENV TORCH_NNPACK_ENABLED=0
 # Reduce FFmpeg verbosity to suppress HEVC codec warnings
 ENV OPENCV_FFMPEG_LOGLEVEL=-8
 
-# Expose API port (HTTP on 9878, HTTPS on 9879)
-EXPOSE 9878
+# Expose API port
 EXPOSE 9879
 
-# Health check (supports both HTTP and HTTPS)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9878/api/v1/health')" || python -c "import urllib.request, ssl; ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE; urllib.request.urlopen('https://localhost:9879/api/v1/health', context=ctx)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9879/api/v1/health')" || exit 1
 
 # Run the application
 CMD ["python", "-m", "parking_monitor.main"]
