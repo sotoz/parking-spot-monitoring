@@ -457,16 +457,27 @@ def main():
         cfg = load_config(config_path)
         host = cfg.api.host
         port = cfg.api.port
+        ssl_certfile = cfg.api.ssl_certfile
+        ssl_keyfile = cfg.api.ssl_keyfile
     else:
         host = "0.0.0.0"
         port = 8000
+        ssl_certfile = None
+        ssl_keyfile = None
 
-    uvicorn.run(
-        "parking_monitor.main:app",
-        host=host,
-        port=port,
-        reload=False,
-    )
+    # Build uvicorn config
+    uvicorn_kwargs = {
+        "host": host,
+        "port": port,
+        "reload": False,
+    }
+
+    # Enable HTTPS if SSL certificates are configured
+    if ssl_certfile and ssl_keyfile:
+        uvicorn_kwargs["ssl_certfile"] = ssl_certfile
+        uvicorn_kwargs["ssl_keyfile"] = ssl_keyfile
+
+    uvicorn.run("parking_monitor.main:app", **uvicorn_kwargs)
 
 
 if __name__ == "__main__":

@@ -46,6 +46,8 @@ class APIConfig(BaseModel):
 
     host: str = "0.0.0.0"
     port: int = 8000
+    ssl_certfile: Optional[str] = None  # Path to SSL certificate file
+    ssl_keyfile: Optional[str] = None  # Path to SSL private key file
 
 
 class CalibrationConfig(BaseModel):
