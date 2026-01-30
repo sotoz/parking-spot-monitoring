@@ -5,7 +5,6 @@ services:
     container_name: parking-monitor
     ports:
       - "9878:9878"
-      - "9879:9879"
     volumes:
       - ./config:/app/config
     environment:

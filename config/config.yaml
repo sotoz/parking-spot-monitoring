@@ -47,7 +47,7 @@ detection:
 api:
   # API server bind address
   host: "0.0.0.0"
-  port: 9879
+  port: 9878
 
 calibration:
   # Enable automatic camera drift detection and recalibration

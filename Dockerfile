@@ -34,11 +34,11 @@ ENV TORCH_NNPACK_ENABLED=0
 ENV OPENCV_FFMPEG_LOGLEVEL=-8
 
 # Expose API port
-EXPOSE 9879
+EXPOSE 9878
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9879/api/v1/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9878/api/v1/health')" || exit 1
 
 # Run the application
 CMD ["python", "-m", "parking_monitor.main"]
