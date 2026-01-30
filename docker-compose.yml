@@ -8,7 +8,6 @@ services:
       - "9879:9879"
     volumes:
       - ./config:/app/config
-      - /etc/letsencrypt/live/parking.kotsanation.org:/certs:ro
     environment:
       - UFP_PASSWORD=${UFP_PASSWORD}
     restart: unless-stopped
