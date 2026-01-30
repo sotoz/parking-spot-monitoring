@@ -45,13 +45,14 @@ detection:
   enhance_low_light: true
 
 api:
-  # API server bind address
+  # API server bind address (use port 9879 for HTTPS)
   host: "0.0.0.0"
   port: 9878
 
   # HTTPS configuration (optional)
-  # Uncomment and set paths to enable HTTPS
+  # Uncomment, set port to 9879, and set paths to enable HTTPS
   # For Docker: mount certs to /certs and use these paths
+  # port: 9879
   # ssl_certfile: "/certs/fullchain.pem"
   # ssl_keyfile: "/certs/privkey.pem"
 
