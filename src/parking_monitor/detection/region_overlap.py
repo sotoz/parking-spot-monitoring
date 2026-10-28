@@ -13,6 +13,7 @@ class ParkingSpot:
     id: str
     name: str
     polygon: list[tuple[int, int]]  # List of (x, y) vertices
+    blocked: bool = False  # Pinned as occupied, skipped by detection
 
     @property
     def bbox(self) -> tuple[int, int, int, int]:
@@ -52,6 +53,7 @@ class ParkingSpot:
             id=self.id,
             name=self.name,
             polygon=scaled_polygon,
+            blocked=self.blocked,
         )
 
     @classmethod
@@ -61,6 +63,7 @@ class ParkingSpot:
             id=data["id"],
             name=data["name"],
             polygon=[tuple(p) for p in data["polygon"]],
+            blocked=bool(data.get("blocked", False)),
         )
 
 

@@ -17,9 +17,9 @@ camera:
   verify_ssl: false
 
   # Camera name as shown in UniFi Protect, or the camera ID
-  camera_id: "Buiten"
+  camera_id: "Buiten G5"
 
-  # Snapshot resolution - G4 Instant supports up to 2K (2688x1512)
+  # Snapshot resolution - matches the current parking spot calibration image
   # Note: Camera must be set to High quality in UniFi Protect settings
   snapshot_width: 2688
   snapshot_height: 1512

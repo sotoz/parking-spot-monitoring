@@ -52,6 +52,7 @@ class UniFiProtectClient:
         self.verify_ssl = verify_ssl
         self._client: Optional[ProtectApiClient] = None
         self._camera_cache: dict[str, Camera] = {}
+        self._rtsp_urls: dict[str, str] = {}
         self._connected = False
 
     async def connect(self) -> None:
@@ -77,6 +78,17 @@ class UniFiProtectClient:
             self._camera_cache[camera.id] = camera
             self._camera_cache[camera.name.lower()] = camera
             logger.debug(f"Found camera: {camera.name} (ID: {camera.id})")
+
+        # Build RTSP URLs for the high-quality channel from the raw bootstrap.
+        # uiprotect's typed Camera model no longer exposes the RTSP alias.
+        self._rtsp_urls = {}
+        raw_bootstrap = await self._client.api_request("bootstrap")
+        for raw_cam in raw_bootstrap.get("cameras", []):
+            channels = raw_cam.get("channels") or []
+            if channels and channels[0].get("isRtspEnabled") and channels[0].get("rtspAlias"):
+                self._rtsp_urls[raw_cam["id"]] = (
+                    f"rtsp://{self.host}:7447/{channels[0]['rtspAlias']}"
+                )
 
         self._connected = True
         logger.info(
@@ -118,75 +130,56 @@ class UniFiProtectClient:
                 f"Camera '{camera_id}' not found. Available cameras: {available}"
             )
 
-        # Try to get high-quality snapshot from RTSP stream (channel 0)
-        # The standard get_snapshot() returns low-quality preview
-        if hasattr(camera, 'channels') and camera.channels and len(camera.channels) > 0:
-            high_channel = camera.channels[0]  # Channel 0 is usually highest quality
-            if hasattr(high_channel, 'is_rtsp_enabled') and high_channel.is_rtsp_enabled:
-                logger.debug(
-                    f"Using RTSP stream for snapshot: {high_channel.width}x{high_channel.height}"
-                )
+        # Grab a full-resolution frame from the RTSP stream (channel 0).
+        # The API snapshot endpoint only returns a low-quality preview.
+        rtsp_url = self._rtsp_urls.get(camera.id)
+        if rtsp_url:
+            # HEVC streams can have codec errors when catching mid-sequence
+            max_retries = 3
+            for attempt in range(max_retries):
                 try:
-                    # Get RTSP URL - uiprotect should provide this
-                    rtsp_url = None
-                    if hasattr(camera, 'rtsp_url'):
-                        rtsp_url = camera.rtsp_url
-                    elif hasattr(high_channel, 'rtsp_url'):
-                        rtsp_url = high_channel.rtsp_url
-                    elif hasattr(camera, 'get_rtsps_url'):
-                        rtsp_url = camera.get_rtsps_url()
+                    cap = cv2.VideoCapture(rtsp_url)
+                    if not cap.isOpened():
+                        logger.warning(f"Failed to open RTSP stream (attempt {attempt + 1}/{max_retries})")
+                        if attempt < max_retries - 1:
+                            increment_rtsp_retries()
+                            time.sleep(0.5)
+                        continue
 
-                    if rtsp_url:
-                        # Grab a frame from RTSP using OpenCV with retry logic
-                        # HEVC streams can have codec errors when catching mid-sequence
-                        max_retries = 3
-                        for attempt in range(max_retries):
-                            try:
-                                cap = cv2.VideoCapture(rtsp_url)
-                                if not cap.isOpened():
-                                    logger.warning(f"Failed to open RTSP stream (attempt {attempt + 1}/{max_retries})")
-                                    if attempt < max_retries - 1:
-                                        increment_rtsp_retries()
-                                        time.sleep(0.5)
-                                    continue
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffering
 
-                                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffering
+                    # Skip first few frames to get past codec initialization
+                    for _ in range(3):
+                        cap.grab()
 
-                                # Skip first few frames to get past codec initialization
-                                for _ in range(3):
-                                    cap.grab()
+                    ret, frame = cap.read()
+                    cap.release()
 
-                                ret, frame = cap.read()
-                                cap.release()
+                    if ret and frame is not None:
+                        # Resize if needed
+                        if width and height:
+                            frame = cv2.resize(frame, (width, height))
 
-                                if ret and frame is not None:
-                                    # Resize if needed
-                                    if width and height:
-                                        frame = cv2.resize(frame, (width, height))
-
-                                    # Encode to JPEG
-                                    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
-                                    logger.debug(f"Captured RTSP frame: {len(buffer)} bytes (attempt {attempt + 1})")
-                                    increment_rtsp_success()
-                                    return buffer.tobytes()
-                                else:
-                                    logger.debug(f"Failed to read frame (attempt {attempt + 1}/{max_retries})")
-                                    if attempt < max_retries - 1:
-                                        increment_rtsp_retries()
-                                        time.sleep(0.5)
-
-                            except Exception as e:
-                                logger.debug(f"RTSP capture error (attempt {attempt + 1}/{max_retries}): {e}")
-                                if attempt < max_retries - 1:
-                                    increment_rtsp_retries()
-                                    time.sleep(0.5)
-                                continue
-
-                        increment_rtsp_failure()
-                        logger.warning("Failed to capture frame from RTSP after retries, falling back to API")
+                        # Encode to JPEG
+                        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+                        logger.debug(f"Captured RTSP frame: {len(buffer)} bytes (attempt {attempt + 1})")
+                        increment_rtsp_success()
+                        return buffer.tobytes()
+                    else:
+                        logger.debug(f"Failed to read frame (attempt {attempt + 1}/{max_retries})")
+                        if attempt < max_retries - 1:
+                            increment_rtsp_retries()
+                            time.sleep(0.5)
 
                 except Exception as e:
-                    logger.warning(f"RTSP capture failed: {e}, falling back to API snapshot")
+                    logger.debug(f"RTSP capture error (attempt {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        increment_rtsp_retries()
+                        time.sleep(0.5)
+                    continue
+
+            increment_rtsp_failure()
+            logger.warning("Failed to capture frame from RTSP after retries, falling back to API")
 
         # Fallback to standard API snapshot (low quality)
         logger.debug(f"Fetching API snapshot from camera '{camera.name}' at {width}x{height}")

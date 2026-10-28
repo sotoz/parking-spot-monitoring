@@ -220,18 +220,9 @@ async def run_calibration_loop(check_hour: int = 3) -> None:
                             spots.extend(new_spots)
 
                             # Reinitialize spot manager with new spots
-                            spots_config = [{"id": s.id, "name": s.name} for s in spots]
-                            spot_manager.spots.clear()
-                            for spot_cfg in spots_config:
-                                from .state.models import SpotStatus, ParkingSpotState
-                                spot_manager.spots[spot_cfg["id"]] = ParkingSpotState(
-                                    id=spot_cfg["id"],
-                                    name=spot_cfg["name"],
-                                    status=SpotStatus.UNKNOWN,
-                                    vehicle=None,
-                                    last_changed=now,
-                                    last_checked=now,
-                                )
+                            spot_manager.reset_spots(
+                                [{"id": s.id, "name": s.name, "blocked": s.blocked} for s in spots]
+                            )
 
                             logger.info(f"Reloaded {len(new_spots)} parking spots after recalibration")
                     else:
@@ -322,7 +313,7 @@ async def lifespan(app: FastAPI):
     logger.info("Loaded YOLOv8 model")
 
     # Initialize spot manager
-    spots_config = [{"id": s.id, "name": s.name} for s in spots]
+    spots_config = [{"id": s.id, "name": s.name, "blocked": s.blocked} for s in spots]
     spot_manager = SpotManager(
         spots_config=spots_config,
         hysteresis_count=config.detection.hysteresis_count,
@@ -387,18 +378,9 @@ async def lifespan(app: FastAPI):
                 spots.clear()
                 spots.extend(new_spots)
                 # Update spot manager
-                from .state.models import SpotStatus, ParkingSpotState
-                now = datetime.now()
-                spot_manager.spots.clear()
-                for s in new_spots:
-                    spot_manager.spots[s.id] = ParkingSpotState(
-                        id=s.id,
-                        name=s.name,
-                        status=SpotStatus.UNKNOWN,
-                        vehicle=None,
-                        last_changed=now,
-                        last_checked=now,
-                    )
+                spot_manager.reset_spots(
+                    [{"id": s.id, "name": s.name, "blocked": s.blocked} for s in new_spots]
+                )
                 logger.info(f"Reloaded {len(new_spots)} spots after calibration")
 
         # Initialize calibration API endpoints

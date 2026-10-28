@@ -29,32 +29,49 @@ class SpotManager:
         Initialize the spot manager.
 
         Args:
-            spots_config: List of spot configuration dicts with 'id' and 'name'
+            spots_config: List of spot configuration dicts with 'id' and 'name'.
+                An optional 'blocked': true pins the spot as occupied and
+                skips detection for it (e.g. temporary building material).
             hysteresis_count: Number of consecutive detections before state change
         """
         self.hysteresis_count = hysteresis_count
 
-        # Initialize spot states
         self.spots: dict[str, ParkingSpotState] = {}
         self._pending_changes: dict[str, int] = {}  # spot_id -> consecutive count
         self._pending_state: dict[str, SpotStatus] = {}
+        self._blocked: set[str] = set()
         self._camera_connected = False
         self._detection_enabled = True
+
+        self.reset_spots(spots_config)
+
+    def reset_spots(self, spots_config: list[dict]) -> None:
+        """Replace all tracked spots; detected spots start UNKNOWN, blocked ones OCCUPIED."""
+        self.spots.clear()
+        self._pending_changes.clear()
+        self._pending_state.clear()
+        self._blocked.clear()
 
         now = datetime.now()
         for spot in spots_config:
             spot_id = spot["id"]
+            blocked = bool(spot.get("blocked", False))
             self.spots[spot_id] = ParkingSpotState(
                 id=spot_id,
                 name=spot["name"],
-                status=SpotStatus.UNKNOWN,
+                status=SpotStatus.OCCUPIED if blocked else SpotStatus.UNKNOWN,
                 vehicle=None,
                 last_changed=now,
                 last_checked=now,
             )
             self._pending_changes[spot_id] = 0
+            if blocked:
+                self._blocked.add(spot_id)
 
-        logger.info(f"Initialized SpotManager with {len(self.spots)} spots")
+        logger.info(
+            f"Initialized SpotManager with {len(self.spots)} spots "
+            f"({len(self._blocked)} blocked)"
+        )
 
     def update_from_detection(
         self,
@@ -79,6 +96,10 @@ class SpotManager:
 
             spot = self.spots[spot_id]
             spot.last_checked = now
+
+            # Blocked spots are pinned as occupied (e.g. temporary obstruction)
+            if spot_id in self._blocked:
+                continue
 
             # Determine detected status
             detected_status = (
